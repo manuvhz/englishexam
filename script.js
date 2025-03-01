@@ -4,6 +4,9 @@ const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-
 let preguntas = []; // Almacena las preguntas con respuestas correctas
 
 async function generarExamen() {
+    document.getElementById("exam-container").innerHTML = `
+        <div class="question-card loading">⌛ Procesando... Por favor, espera.</div>`;
+
     try {
         const response = await fetch(`${API_URL}?key=${API_KEY}`, {
             method: "POST",
@@ -19,31 +22,28 @@ async function generarExamen() {
                                b) [Opción 2]
                                c) [Opción 3]
                                d) [Opción 4]
-                               Respuesta correcta: [Letra]
-                                
-                               Ejemplo:
-                               Pregunta 1. What color is the sky?
-                               a) Red
-                               b) Blue
-                               c) Green
-                               d) Yellow
-                               Respuesta correcta: b`
+                               Respuesta correcta: [Letra]`
                     }]
                 }]
             })
         });
 
+        if (response.status === 429) throw new Error("Demasiadas solicitudes, por favor intenta más tarde.");
         if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-        
+
         const data = await response.json();
-        const texto = data.candidates[0].content.parts[0].text;
+        const texto = data.candidates[0]?.content?.parts[0]?.text || "";
         preguntas = parsearPreguntas(texto);
+
+        if (preguntas.length === 0) throw new Error("No se generaron preguntas. Intenta nuevamente.");
+
         mostrarExamen(preguntas);
 
     } catch (error) {
         document.getElementById("exam-container").innerHTML = `
             <div class="question-card error">
-                Error: ${error.message}
+                ❌ Lo sentimos, ha ocurrido un problema.<br>
+                ${error.message}
             </div>`;
     }
 }
@@ -53,14 +53,14 @@ function parsearPreguntas(texto) {
         const lineas = bloque.split('\n').filter(l => l.trim());
         const pregunta = lineas[0].replace(/Pregunta \d+\.\s*/, '');
         const opciones = {};
-        
+
         lineas.slice(1, 5).forEach(linea => {
             const match = linea.match(/([a-d])\)\s*(.+)/);
             if (match) opciones[match[1]] = match[2];
         });
 
         const correcta = lineas[5].match(/Respuesta correcta:\s*([a-d])/i)[1];
-        
+
         return { pregunta, opciones, correcta };
     });
 }
@@ -94,7 +94,7 @@ function calificarExamen() {
         const respuestaUsuario = respuestas.get(`pregunta-${index}`)?.toLowerCase();
         const esCorrecta = respuestaUsuario === p.correcta;
         if (esCorrecta) correctas++;
-        
+
         return {
             pregunta: p.pregunta,
             usuario: respuestaUsuario || 'Sin responder',
