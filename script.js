@@ -1,4 +1,4 @@
-const API_KEY = "AIzaSyDhYQY3B9JuuSKzT2YXZ3uotmie3y3ms6M";
+const API_KEY = "AIzaSyC70pXH6sFPKdE3g1EI_avTO7vvTOX2GcY";
 const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent";
 
 let preguntas = []; // Almacena las preguntas con respuestas correctas
