@@ -1,7 +1,7 @@
 const API_KEY = "AIzaSyC70pXH6sFPKdE3g1EI_avTO7vvTOX2GcY";
 const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent";
 
-let preguntas = []; // Almacena las preguntas con respuestas correctas
+let preguntas = [];
 
 async function generarExamen() {
     document.getElementById("exam-container").innerHTML = `
@@ -33,6 +33,8 @@ async function generarExamen() {
 
         const data = await response.json();
         const texto = data.candidates[0]?.content?.parts[0]?.text || "";
+        console.log("Respuesta de la API:", texto); // Depuración
+
         preguntas = parsearPreguntas(texto);
 
         if (preguntas.length === 0) throw new Error("No se generaron preguntas. Intenta nuevamente.");
@@ -51,6 +53,12 @@ async function generarExamen() {
 function parsearPreguntas(texto) {
     return texto.split('\n\n').filter(p => p.trim()).map(bloque => {
         const lineas = bloque.split('\n').filter(l => l.trim());
+
+        if (lineas.length < 6) {
+            console.error("Formato de pregunta incorrecto:", bloque);
+            return null;
+        }
+
         const pregunta = lineas[0].replace(/Pregunta \d+\.\s*/, '');
         const opciones = {};
 
@@ -59,69 +67,14 @@ function parsearPreguntas(texto) {
             if (match) opciones[match[1]] = match[2];
         });
 
-        const correcta = lineas[5].match(/Respuesta correcta:\s*([a-d])/i)[1];
+        const respuestaCorrecta = lineas[5]?.match(/Respuesta correcta:\s*([a-d])/i)?.[1];
+        if (!respuestaCorrecta) {
+            console.error("Respuesta correcta no encontrada:", bloque);
+            return null;
+        }
 
-        return { pregunta, opciones, correcta };
-    });
+        return { pregunta, opciones, correcta: respuestaCorrecta };
+    }).filter(p => p !== null);
 }
 
-function mostrarExamen(preguntas) {
-    const examHTML = preguntas.map((p, index) => `
-        <div class="question-card">
-            <h3>Pregunta ${index + 1}: ${p.pregunta}</h3>
-            <div class="options-container">
-                ${Object.entries(p.opciones).map(([letra, texto]) => `
-                    <label class="option-label">
-                        <input type="radio" name="pregunta-${index}" value="${letra}" required>
-                        <span>${letra}) ${texto}</span>
-                    </label>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-
-    document.getElementById("exam-container").innerHTML = `
-        <form id="exam-form">${examHTML}</form>
-        <button onclick="calificarExamen()" style="margin-top:20px">📝 Calificar Examen</button>`;
-}
-
-function calificarExamen() {
-    const form = document.getElementById("exam-form");
-    const respuestas = new FormData(form);
-    let correctas = 0;
-
-    const resultados = preguntas.map((p, index) => {
-        const respuestaUsuario = respuestas.get(`pregunta-${index}`)?.toLowerCase();
-        const esCorrecta = respuestaUsuario === p.correcta;
-        if (esCorrecta) correctas++;
-
-        return {
-            pregunta: p.pregunta,
-            usuario: respuestaUsuario || 'Sin responder',
-            correcta: p.correcta,
-            esCorrecta
-        };
-    });
-
-    const puntaje = ((correctas / preguntas.length) * 4 + 1).toFixed(2); // Escala 1.0-5.0
-    
-    mostrarResultados(resultados, puntaje);
-}
-
-function mostrarResultados(resultados, puntaje) {
-    const resultadosHTML = resultados.map((r, index) => `
-        <div class="question-card ${r.esCorrecta ? 'correct' : 'incorrect'}">
-            <h3>Pregunta ${index + 1}: ${r.pregunta}</h3>
-            <p>Tu respuesta: ${r.usuario.toUpperCase()} 
-            (${r.esCorrecta ? '✅ Correcta' : '❌ Correcta: ' + r.correcta.toUpperCase()})</p>
-        </div>
-    `).join('');
-
-    document.getElementById("results-container").innerHTML = `
-        <div class="results">
-            <div class="score">Tu calificación: ${puntaje}/5.0</div>
-            ${resultadosHTML}
-        </div>`;
-    
-    window.scrollTo(0, document.body.scrollHeight);
-}
+// (Mantén las funciones mostrarExamen, calificarExamen y mostrarResultados iguales)
